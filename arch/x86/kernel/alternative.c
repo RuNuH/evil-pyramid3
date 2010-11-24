@@ -352,6 +352,7 @@ void __init_or_module alternatives_smp_module_del(struct module *mod)
 	mutex_unlock(&smp_alt);
 }
 
+bool skip_smp_alternatives;
 void alternatives_smp_switch(int smp)
 {
 	struct smp_alt_module *mod;
@@ -367,7 +368,7 @@ void alternatives_smp_switch(int smp)
 	printk("lockdep: fixing up alternatives.\n");
 #endif
 
-	if (noreplace_smp || smp_alt_once)
+	if (noreplace_smp || smp_alt_once || skip_smp_alternatives)
 		return;
 	BUG_ON(!smp && (num_online_cpus() > 1));
 
