@@ -483,14 +483,13 @@ static irqreturn_t tsens_isr_thread(int irq, void *data)
 							tm->sensor[i].tz_dev);
 
 				/* Notify user space */
-				kobject_uevent(&tm->sensor[i].
-					tz_dev->device.kobj, KOBJ_CHANGE);
+				schedule_work(&tm->work);
 				adc_code = readl(TSENS_S0_STATUS_ADDR
 							+ (i << 2));
 				printk(KERN_INFO"\nTrip point triggered by "
 					"current temperature (%d degrees) "
 					"measured by Temperature-Sensor %d\n",
-				tsens_tz_code_to_degC(adc_code), i);
+					tsens_tz_code_to_degC(adc_code), i);
 			}
 		}
 		sensor >>= 1;
@@ -530,6 +529,8 @@ static int __devinit tsens_tm_probe(struct platform_device *pdev)
 	tmdev->offset = TSENS_FACTOR * TSENS_CAL_DEGC
 			- (int)(TSENS_FACTOR * TSENS_SLOPE) * calib_data;
 	tmdev->prev_reading_avail = 0;
+
+	INIT_WORK(&tmdev->work, notify_uspace_tsens_fn);
 
 	INIT_WORK(&tmdev->work, notify_uspace_tsens_fn);
 
