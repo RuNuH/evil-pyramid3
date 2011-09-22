@@ -7,6 +7,9 @@ scripts/kconfig/
 *.d
 *.order
 *.ko
+*.mod.c
+*.old
+*.lzo
 .version
 arch/arm/kernel/asm-offsets.s
 include/config/
