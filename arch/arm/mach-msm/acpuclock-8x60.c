@@ -59,6 +59,7 @@
 #define SCPLL_LOW_VDD_FMAX	 594000 /* KHz */
 #define SCPLL_LOW_VDD		1000000 /* uV */
 #define SCPLL_NOMINAL_VDD	1100000 /* uV */
+#define MAX_BOOT_KHZ		1350000 /* KHz */
 
 /* SCPLL Modes. */
 #define SCPLL_POWER_DOWN	0
@@ -767,7 +768,7 @@ static void __init bus_init(void)
 }
 
 #ifdef CONFIG_CPU_FREQ_MSM
-static struct cpufreq_frequency_table freq_table[NR_CPUS][20];
+static struct cpufreq_frequency_table freq_table[NR_CPUS][23];
 
 static void __init cpufreq_table_init(void)
 {
@@ -802,40 +803,8 @@ static void __init cpufreq_table_init(void)
 static void __init cpufreq_table_init(void) {}
 #endif
 
-static unsigned int __init select_freq_plan(void)
-{
-	uint32_t raw_speed_bin, speed_bin, max_khz;
-	struct clkctl_acpu_speed *f;
-
-	acpu_freq_tbl = acpu_freq_tbl_v2;
-	l2_freq_tbl = l2_freq_tbl_v2;
-	l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_v2);
-
-	raw_speed_bin = readl(QFPROM_SPEED_BIN_ADDR);
-	speed_bin = raw_speed_bin & 0xF;
-	if (speed_bin == 0xF)
-		speed_bin = (raw_speed_bin >> 4) & 0xF;
-	if (speed_bin == 0x1)
-		max_khz = 1512000;
-	else
-		max_khz = 1188000;
-
-	/* Truncate the table based to max_khz. */
-	for (f = acpu_freq_tbl; f->acpuclk_khz != 0; f++) {
-		if (f->acpuclk_khz > max_khz) {
-			f->acpuclk_khz = 0;
-			break;
-		}
-	}
-	f--;
-	pr_info("Max ACPU freq: %u KHz\n", f->acpuclk_khz);
-
-	return f->acpuclk_khz;
-}
-
 void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 {
-	unsigned int max_cpu_khz;
 	int cpu;
 
 	mutex_init(&drv_state.lock);
@@ -844,7 +813,9 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	drv_state.vdd_switch_time_us = clkdata->vdd_switch_time_us;
 
 	/* Configure hardware. */
-	max_cpu_khz = select_freq_plan();
+	acpu_freq_tbl = acpu_freq_tbl_v2;
+	l2_freq_tbl = l2_freq_tbl_v2;
+	l2_freq_tbl_size = ARRAY_SIZE(l2_freq_tbl_v2);
 	unselect_scplls();
 	scpll_set_refs();
 	for_each_possible_cpu(cpu)
@@ -855,7 +826,7 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 
 	/* Improve boot time by ramping up CPUs immediately. */
 	for_each_online_cpu(cpu)
-		acpuclk_set_rate(cpu, max_cpu_khz, SETRATE_INIT);
+		acpuclk_set_rate(cpu, MAX_BOOT_KHZ, SETRATE_INIT);
 
 	cpufreq_table_init();
 }
